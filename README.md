@@ -337,7 +337,7 @@ https://github.com/alapatiraga05-prog/tri9t-ai-assignment
 
 # Author
 
-**Keerthi A**
+**Alapati Raga Keerthana**
 
 Electronics and Communication Engineering
 
