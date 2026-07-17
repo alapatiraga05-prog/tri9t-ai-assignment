@@ -8,7 +8,6 @@ from app.database.database import SessionLocal
 from app.models.document import Document
 from app.schemas.document_schema import DocumentRead
 from app.services.ingest_service import IngestService
-from app.services.version_service import VersionService
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -30,14 +29,9 @@ def ingest_document(file: UploadFile = File(...)):
     with save_path.open("wb") as handle:
         handle.write(file.file.read())
 
-    # Parse PDF
-    service = IngestService()
-    nodes = service.ingest(str(save_path))
-
     db: Session = SessionLocal()
 
     try:
-
         latest_document = (
             db.query(Document)
             .filter(Document.name == file.filename)
@@ -45,27 +39,41 @@ def ingest_document(file: UploadFile = File(...)):
             .first()
         )
 
-        if latest_document:
-            version = latest_document.version + 1
-        else:
-            version = 1
+        version = 1 if latest_document is None else latest_document.version + 1
 
-        version_service = VersionService()
+    finally:
+        db.close()
 
-        document = version_service.create_version(
-            file.filename,
-            version,
-            nodes
+    service = IngestService()
+
+    service.ingest(
+        pdf_path=str(save_path),
+        document_name=file.filename,
+        version=version,
+    )
+
+    db = SessionLocal()
+
+    try:
+        document = (
+            db.query(Document)
+            .filter(
+                Document.name == file.filename,
+                Document.version == version,
+            )
+            .first()
         )
 
-        db.add(document)
-        db.commit()
-        db.refresh(document)
+        if document is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Document was not saved."
+            )
 
         return DocumentRead(
             id=document.id,
             name=document.name,
-            version=document.version
+            version=document.version,
         )
 
     finally:
@@ -78,7 +86,6 @@ def list_documents():
     db: Session = SessionLocal()
 
     try:
-
         documents = (
             db.query(Document)
             .order_by(Document.version.desc())
@@ -87,11 +94,11 @@ def list_documents():
 
         return [
             DocumentRead(
-                id=item.id,
-                name=item.name,
-                version=item.version
+                id=d.id,
+                name=d.name,
+                version=d.version,
             )
-            for item in documents
+            for d in documents
         ]
 
     finally:

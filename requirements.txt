@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-multipart
+pymongo
+python-dotenv
+requests
+PyPDF2
+pypdf
