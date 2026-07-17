@@ -1,20 +1,43 @@
-from fastapi import APIRouter, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter
 
-from app.database.database import SessionLocal
-from app.models.document import Document
-from app.services.ai_service import AIService
+from app.services.testcase_service import TestCaseService
+from app.services.mongodb_service import MongoDBService
 
-router = APIRouter(prefix="/testcases", tags=["testcases"])
+router = APIRouter(
+    prefix="/testcases",
+    tags=["testcases"]
+)
 
 
-@router.post("/generate")
-def generate_testcases(document_id: int):
-    db: Session = SessionLocal()
-    document = db.query(Document).filter(Document.id == document_id).first()
-    db.close()
+@router.post("/generate/{old_version}/{new_version}")
+def generate_testcases(
+    old_version: int,
+    new_version: int
+):
 
-    if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
+    service = TestCaseService()
 
-    return AIService().generate_testcases(document)
+    service.generate_for_modified_sections(
+        old_version,
+        new_version
+    )
+
+    return {
+        "message": "Test cases generated successfully."
+    }
+
+
+@router.get("/{version}")
+def get_testcases(
+    version: int
+):
+
+    mongo = MongoDBService()
+
+    data = mongo.get_testcases(version)
+
+    return {
+        "version": version,
+        "count": len(data),
+        "test_cases": data
+    }
